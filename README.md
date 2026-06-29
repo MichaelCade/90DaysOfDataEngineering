@@ -24,7 +24,7 @@ If you have access to a cloud environment, everything here maps directly across.
 
 The diagram below shows how the modules connect into a complete data platform. Each module introduces a new layer; by the end, you have a working end-to-end pipeline running on Kubernetes.
 
-![Architecture Diagram](architecture.png)
+![Architecture Diagram](plan.png)
 
 | Layer | Tool | Replaces (cloud equivalent) |
 |---|---|---|

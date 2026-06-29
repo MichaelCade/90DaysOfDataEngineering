@@ -51,7 +51,7 @@ This is not a beginner course. It assumes:
 - Some exposure to Kubernetes (you don't need to be an expert)
 - Git and GitHub basics
 
-If you need to build those foundations first, the [#90DaysOfDevOps 2022 edition](https://github.com/MichaelCade/90DaysOfDevOps/blob/main/2022.md) covers all of them.
+If you need to build those foundations first, the [#90DaysOfDevOps 2022 edition](https://github.com/MichaelCade/90DaysOfDevOps) covers all of them.
 
 ---
 

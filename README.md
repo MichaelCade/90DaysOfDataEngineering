@@ -46,7 +46,7 @@ The diagram below shows how the modules connect into a complete data platform. E
 This is not a beginner course. It assumes:
 
 - Comfort with the Linux command line
-- Basic Python (functions, loops, classes — not data science level)
+- Basic Python (functions, loops, classes — not data science level) (I am adding some fundamental slides to the repository to help me get up to speed, might be useful for some to hit this first)
 - Familiarity with Docker and containers
 - Some exposure to Kubernetes (you don't need to be an expert)
 - Git and GitHub basics

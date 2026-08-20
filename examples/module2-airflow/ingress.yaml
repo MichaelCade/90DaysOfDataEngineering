@@ -1,0 +1,25 @@
+# Expose the Airflow webserver via Traefik over HTTPS (same pattern as the Module 1 dashboards).
+# Airflow sets secure cookies, so it must be served over HTTPS (see config.webserver in values.yaml).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: airflow
+  namespace: airflow
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - airflow.192.168.169.190.nip.io
+  rules:
+    - host: airflow.192.168.169.190.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: airflow-webserver
+                port:
+                  number: 8080

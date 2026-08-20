@@ -1,0 +1,40 @@
+# Apache Airflow — official chart apache-airflow/airflow 1.16.0 (Airflow 2.10.5).
+# Deployed on the 90DaysOfDataEngineering cluster. See README.md in this directory.
+
+# Each task runs as its own Kubernetes pod — no Celery workers, no Redis, scales to zero.
+executor: KubernetesExecutor
+
+# Metadata database = the CloudNativePG cluster from Module 1 (not a bundled Postgres).
+# The secret's `connection` key holds: postgresql://airflow:***@pg-rw.postgres.svc.cluster.local:5432/airflow
+postgresql:
+  enabled: false
+data:
+  metadataSecretName: airflow-metadata-db
+
+# KubernetesExecutor task pods are ephemeral, so keep task logs on a shared RWX volume
+# (Rook-Ceph CephFS) — that way the webserver can still serve logs after a task pod is gone.
+logs:
+  persistence:
+    enabled: true
+    storageClassName: ceph-filesystem
+    size: 5Gi
+
+# DAGs delivered by git-sync from the public course repo (GitOps — push a DAG, it appears).
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/MichaelCade/90DaysOfDataEngineering.git
+    branch: main
+    subPath: examples/module2-airflow/dags
+    period: 30s
+
+# Airflow sits behind Traefik (which terminates TLS). Tell Airflow its external URL and to
+# trust the proxy headers — otherwise logins/redirects and secure cookies break behind HTTPS
+# (the same lesson we hit with the K10 dashboard).
+config:
+  webserver:
+    base_url: https://airflow.192.168.169.190.nip.io
+    enable_proxy_fix: 'True'
+
+# NOTE: the web UI admin login defaults to admin / admin — fine on a private lab LAN,
+# but change it (Security → List Users) before this is reachable by anyone you don't trust.

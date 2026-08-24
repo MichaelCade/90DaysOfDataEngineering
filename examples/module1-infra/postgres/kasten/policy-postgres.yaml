@@ -1,0 +1,38 @@
+# K10 policy #1 — protect the `postgres` application.
+# Snapshots + exports the whole namespace to the `kasten-backups` location profile.
+# On each run, the cnpg-bp BlueprintBinding auto-triggers a CNPG barman backup
+# (a new backups.postgresql.cnpg.io object) — no blueprint reference needed here.
+# A location profile is REQUIRED for the Kanister/blueprint action to run.
+apiVersion: config.kio.kasten.io/v1alpha1
+kind: Policy
+metadata:
+  name: postgres-backup
+  namespace: kasten-io
+spec:
+  comment: "Backup+export the postgres namespace; binding triggers a CNPG barman backup each run."
+  frequency: "@daily"
+  retention:
+    daily: 7
+    weekly: 4
+  actions:
+    - action: backup
+      backupParameters:
+        # A location profile on the BACKUP action is REQUIRED for the Kanister/blueprint
+        # action to run (it's what fails with "kanister-profile not found" otherwise).
+        profile:
+          name: kasten-backups
+          namespace: kasten-io
+    - action: export
+      exportParameters:
+        frequency: "@daily"
+        profile:
+          name: kasten-backups
+          namespace: kasten-io
+        exportData:
+          enabled: true
+  selector:
+    matchExpressions:
+      - key: k10.kasten.io/appNamespace
+        operator: In
+        values:
+          - postgres

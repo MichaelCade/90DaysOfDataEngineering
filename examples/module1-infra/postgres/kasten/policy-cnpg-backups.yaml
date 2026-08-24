@@ -1,0 +1,42 @@
+# K10 policy #2 — "back up the backups".
+# High-frequency capture of ONLY the CNPG Backup objects (postgresql.cnpg.io/backups).
+# Policy #1 creates a new Backup object DURING its run, so it isn't in that same restore
+# point; this policy captures those objects shortly after, and exports them — so after a
+# full-namespace loss the restore point still contains the Backup spec (with backupId)
+# needed to rebuild the cluster from barman. It does NOT touch the Cluster resource, so it
+# does not trigger a new barman backup (the binding matches clusters, not backups).
+apiVersion: config.kio.kasten.io/v1alpha1
+kind: Policy
+metadata:
+  name: postgres-cnpg-backups-capture
+  namespace: kasten-io
+spec:
+  comment: "High-frequency capture/export of CNPG Backup objects for DR completeness."
+  frequency: "@hourly"
+  retention:
+    hourly: 24
+  actions:
+    - action: backup
+      backupParameters:
+        profile:
+          name: kasten-backups
+          namespace: kasten-io
+        filters:
+          includeResources:
+            - group: postgresql.cnpg.io
+              version: v1
+              resource: backups
+    - action: export
+      exportParameters:
+        frequency: "@hourly"
+        profile:
+          name: kasten-backups
+          namespace: kasten-io
+        exportData:
+          enabled: true
+  selector:
+    matchExpressions:
+      - key: k10.kasten.io/appNamespace
+        operator: In
+        values:
+          - postgres

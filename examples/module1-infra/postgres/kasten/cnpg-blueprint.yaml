@@ -1,0 +1,55 @@
+apiVersion: cr.kanister.io/v1alpha1
+kind: Blueprint
+metadata: 
+  name: cnpg-bp
+  namespace: kasten-io
+actions:
+  backup:
+    outputArtifacts:
+      clusterBackup:
+        keyValue:
+          name: backup-{{ .Object.metadata.name }}-{{ toDate "2006-01-02T15:04:05.999999999Z07:00" .Time | date "2006-01-02T15:04:05Z07:00" | toString | replace ":" "-" | lower }}
+          namespace: "{{ .Object.metadata.namespace }}"
+    phases:   
+      - func: KubeOps
+        name: createBackup
+        args:
+          operation: create
+          namespace: "{{ .Object.metadata.namespace }}"
+          spec: |-
+            apiVersion: postgresql.cnpg.io/v1
+            kind: Backup
+            metadata:
+              name: backup-{{ .Object.metadata.name }}-{{ toDate "2006-01-02T15:04:05.999999999Z07:00" .Time | date "2006-01-02T15:04:05Z07:00" | toString | replace ":" "-" | lower }}
+            spec:
+              method: barmanObjectStore
+              cluster:
+                name: {{ .Object.metadata.name }}
+      - func: WaitV2
+        name: waitForBackupCompleted
+        args:
+          timeout: 3m
+          conditions:
+            anyOf:
+            - condition: '{{ $completed := false }}{{ if (eq .status.phase "completed") }}{{ $completed = true }}{{ end }}{{ $completed }}'
+              objectReference:
+                apiVersion: "v1"
+                group: "postgresql.cnpg.io"
+                name: backup-{{ .Object.metadata.name }}-{{ toDate "2006-01-02T15:04:05.999999999Z07:00" .Time | date "2006-01-02T15:04:05Z07:00" | toString | replace ":" "-" | lower }}
+                namespace: "{{ .Object.metadata.namespace }}"
+                resource: "backups"
+      
+  delete:
+    inputArtifactNames:
+      - clusterBackup
+    phases:   
+      - func: KubeOps
+        name: deleteBackup
+        args:
+          operation: delete
+          objectReference:
+            group: "postgresql.cnpg.io"
+            resource: "backups"
+            apiVersion: "v1"
+            name: "{{ .ArtifactsIn.clusterBackup.KeyValue.name }}"
+            namespace: "{{ .ArtifactsIn.clusterBackup.KeyValue.namespace }}"

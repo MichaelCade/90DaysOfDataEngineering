@@ -1,0 +1,88 @@
+# CloudNativePG Cluster for the 90DaysOfDataEngineering platform.
+# Requires the CloudNativePG operator (see README.md in this directory).
+#
+# Deploys a 3-instance highly-available PostgreSQL cluster:
+#   1 primary + 2 streaming replicas, with automated failover managed by the operator.
+# Storage uses the cluster's default Rook-Ceph block storage (ceph-block, RWO, 3x replicated).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: postgres
+spec:
+  # 3 instances => 1 primary + 2 replicas (HA with automatic failover).
+  instances: 3
+
+  # Persistent storage per instance, backed by Rook-Ceph.
+  storage:
+    size: 5Gi
+    storageClass: ceph-block
+
+  # Create the initial application database + owning role at bootstrap.
+  # The operator generates a secret `pg-app` holding this user's credentials.
+  # Force a WAL segment to be archived at least every 5 minutes even when the DB is
+  # idle. Without this, a backup's "begin WAL" can sit un-archived on a quiet cluster,
+  # which makes that backup un-restorable until the next write/switch. (Learned the hard way.)
+  postgresql:
+    parameters:
+      archive_timeout: "5min"
+
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: app
+
+  # Modest, explicit resource requests so the scheduler places pods predictably
+  # and the workload has a guaranteed floor. Tune up for real workloads.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # Surface Postgres metrics for Prometheus/Grafana later in the course.
+  monitoring:
+    enablePodMonitor: false
+
+  # Expose the primary (read-write) OUTSIDE the cluster.
+  # PostgreSQL is a raw TCP protocol, so an HTTP Ingress cannot carry it — the
+  # correct approach is a LoadBalancer Service. The operator manages this service
+  # (selector auto-set from selectorType: rw, so it always follows the primary on
+  # failover); MetalLB assigns the pinned IP. Clients connect to 192.168.169.191:5432.
+  # NOTE: this reaches any host on the LAN — keep the app password strong and use sslmode=require.
+  managed:
+    services:
+      additional:
+        - selectorType: rw
+          serviceTemplate:
+            metadata:
+              name: pg-rw-lb
+              annotations:
+                metallb.io/loadBalancerIPs: 192.168.169.191
+            spec:
+              type: LoadBalancer
+
+  # Continuous physical backup to MinIO (S3) via Barman — base backups + WAL archiving.
+  # A PHYSICAL backup captures the WHOLE PostgreSQL instance (every database), and WAL
+  # archiving enables point-in-time recovery. Kasten K10 orchestrates the on-demand Backup
+  # objects via the cnpg-bp Blueprint (see kasten/). Pattern: github.com/michaelcourcy/kasten-cnpg
+  # NOTE: the barman S3 path is independent of Kasten location profiles (it's its own bucket).
+  backup:
+    retentionPolicy: "30d"
+    target: prefer-standby          # back up from a replica to offload the primary
+    barmanObjectStore:
+      destinationPath: s3://cnpg-barman
+      endpointURL: http://minio.minio.svc.cluster.local:9000
+      s3Credentials:
+        accessKeyId:
+          name: barman
+          key: aws_access_key_id
+        secretAccessKey:
+          name: barman
+          key: aws_secret_access_key
+      wal:
+        compression: gzip
+        # (no `encryption:` — CNPG 1.30 only accepts AES256/aws:kms; omit to disable SSE)
+      data:
+        compression: gzip

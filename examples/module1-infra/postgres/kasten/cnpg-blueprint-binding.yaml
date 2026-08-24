@@ -1,0 +1,17 @@
+apiVersion: config.kio.kasten.io/v1alpha1
+kind: BlueprintBinding
+metadata:
+  name: cnpg-bp-binding
+  namespace: kasten-io  
+spec:
+  blueprintRef:
+    name: cnpg-bp
+    namespace: kasten-io
+  resources:
+    matchAll:
+    - type:
+        operator: In
+        values:
+        - group: postgresql.cnpg.io
+          resource: clusters
+          # version: v1

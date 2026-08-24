@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: stg_cricket__batting
+    description: Cleaned batting, one row per (player, season), with derived innings/fifties/hundreds.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [player, season]
+    columns:
+      - name: player
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+      - name: innings
+        description: Innings played = Σ of the run-range buckets.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: stg_cricket__bowling
+    description: Cleaned bowling; NULL strike_rate/average are wicketless bowlers (was '-').
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [player, season]
+    columns:
+      - name: player
+        data_tests: [not_null]
+      - name: wickets
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: is_wicketless
+        data_tests: [not_null]
+
+  - name: stg_cricket__fielding
+    description: Cleaned fielding with a keeper/fielder role flag.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [player, season]
+    columns:
+      - name: player
+        data_tests: [not_null]
+      - name: total_victims
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0

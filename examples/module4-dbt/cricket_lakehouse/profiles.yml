@@ -1,0 +1,20 @@
+# dbt connection profile for the Module 3 lakehouse (Trino -> Lakekeeper -> Iceberg on MinIO).
+#
+# The same coordinates every other tool uses: the Trino MetalLB LoadBalancer, no auth, HTTP.
+#   host=192.168.169.192 port=8080 catalog=lakehouse
+#
+# Run from this directory:  dbt build --profiles-dir .
+# (or copy this block into ~/.dbt/profiles.yml and drop --profiles-dir)
+cricket_lakehouse:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      method: none            # cluster Trino has no auth configured (internal LB)
+      user: dbt               # shows up in the Trino query log as the actor
+      host: 192.168.169.192   # Trino coordinator LoadBalancer
+      port: 8080
+      http_scheme: http
+      catalog: lakehouse      # the Iceberg REST (Lakekeeper) catalog
+      schema: cricket_dbt     # dbt creates models here: lakehouse.cricket_dbt.*
+      threads: 4

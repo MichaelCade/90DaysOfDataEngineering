@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: cricket
+    description: >
+      Uffington 1st XI raw stats, landed by dlt into Postgres (Module 2) and promoted into
+      Iceberg with a Trino CTAS (Day 26). These are the untouched landing tables — dbt reads
+      them via the source() function and never writes to them.
+    catalog: lakehouse      # dbt-trino: source lives in the `lakehouse` catalog...
+    schema: cricket         # ...schema `cricket` (lakehouse.cricket.*)
+    tables:
+      - name: batting
+        description: One row per player per season, with the run-range breakdown (0-9 … 150+).
+        columns:
+          - name: player
+            description: Player name — the natural key alongside season.
+            data_tests: [not_null]
+          - name: season
+            data_tests: [not_null]
+      - name: bowling
+        description: >
+          One row per bowler per season. Wicketless bowlers have '-' for strike_rate/average in
+          the source; dlt parked the '-' in *__v_text variant columns and left the numeric
+          columns NULL (the mess we clean/interpret in staging).
+        columns:
+          - name: player
+            data_tests: [not_null]
+      - name: fielding
+        description: One row per fielder per season — keeping (catches/stumpings) and out-fielding.
+        columns:
+          - name: player
+            data_tests: [not_null]

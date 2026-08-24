@@ -46,7 +46,7 @@ examples/cricket/
 |---|---|---|
 | Ingest landed files → warehouse, typed, incremental `merge` | `ingest/*.py` | 2 — dlt ✅ |
 | Land raw per season in MinIO / Iceberg, partition by season, time-travel across years | _(to come)_ | 3 — Lakehouse |
-| Ranges/dismissals/fielding → metrics (Conversion %, Early Exit %, econ-vs-SR, catch efficiency) as tested models; **clean the `-` strike rates here** | _(to come)_ | 4 — dbt |
+| Ranges/dismissals/fielding → metrics (Conversion %, Early Exit %, econ-vs-SR, catch efficiency) as tested models; **clean the `-` strike rates here** | [`../module4-dbt/`](../module4-dbt/) | 4 — dbt ✅ |
 | Assert invariants (innings = Σ ranges; % in 0–100; dismissals ≤ innings) | _(to come)_ | 5 — Quality |
 | Schedule: ingest → transform → test → regenerate coaching briefings | _(to come)_ | 2/6 — Airflow |
 

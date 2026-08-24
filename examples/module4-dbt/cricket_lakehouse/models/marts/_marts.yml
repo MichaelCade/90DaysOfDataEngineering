@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: batting_summary
+    description: Batting metrics per player/season — Conversion %, Early Exit %, runs/innings.
+    columns:
+      - name: player
+        description: Every batting_summary player must trace back to a staged batting row.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_cricket__batting')
+                field: player
+      - name: conversion_pct
+        description: hundreds / (fifties+hundreds) as a %. NULL only when the player has no 50+ score.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100   # NULLs are allowed & expected (no 50+ scores yet)
+      - name: early_exit_pct
+        description: single-digit innings / innings, as a %.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: bowling_summary
+    description: Bowling metrics per player/season — economy vs strike rate, five-fers, best figures.
+    columns:
+      - name: player
+        data_tests: [not_null]
+      - name: economy_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: strike_rate
+        description: Balls per wicket. NULL for wicketless bowlers (see assert_ singular test).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: bowling_style
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - 'no wickets yet'
+                  - 'both — economical strike bowler'
+                  - 'containing (tight economy)'
+                  - 'attacking (quick strikes)'
+                  - 'wicket-taker'
+
+  - name: fielding_summary
+    description: Fielding per player/season — role (keeper/fielder), victims, catch %.
+    columns:
+      - name: player
+        data_tests: [not_null]
+      - name: role
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['keeper', 'fielder']
+      - name: catch_pct
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: player_season_summary
+    description: OBT — one wide row per player/season across batting, bowling and fielding.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [player, season]
+    columns:
+      - name: player
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+      - name: disciplines_contributed
+        description: Count (0–3) of disciplines the player featured in this season.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 3

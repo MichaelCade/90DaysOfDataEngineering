@@ -1,0 +1,15 @@
+# Python tooling for the #90DaysOfDataEngineering workshop / applied examples.
+#
+#   python3 -m venv .venv
+#   source .venv/bin/activate      # or use .venv/bin/python directly
+#   pip install -r requirements.txt
+#
+# Used by: the dlt workshop (examples/workshop-dlt), the cricket applied example
+# (examples/cricket), and the Trino client for the Module 3 lakehouse.
+
+dlt[postgres,pyiceberg]>=1.28   # ingestion: Postgres + Iceberg (pyiceberg) destinations
+openpyxl>=3.1                   # read the bowling/fielding .xlsx exports
+sqlalchemy>=2.0.18              # required by dlt's pyiceberg/rest-catalog path
+s3fs>=2024.0.0                  # pyiceberg FsspecFileIO -> S3/MinIO
+trino>=0.330                    # Trino client (query the lakehouse)
+psycopg2-binary>=2.9            # Postgres driver for quick checks

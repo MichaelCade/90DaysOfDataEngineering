@@ -1,0 +1,26 @@
+# Lakekeeper (Apache Iceberg REST catalog) — Module 3 lakehouse.
+# Metadata store = our existing CNPG Postgres (db/role `lakekeeper`); storage config for
+# warehouses is set post-install via the management API (points at MinIO bucket `lakehouse`).
+lakekeeper:
+  edition: "core"            # Apache OSS edition
+  useLicenseSecret: false    # core needs no license
+
+postgresql:
+  enabled: false             # do NOT bundle a Postgres — use CNPG below
+
+externalDatabase:
+  type: postgres
+  # both point at the primary (pg-rw) to avoid replica-lag edge cases during migrations
+  host_read: "pg-rw.postgres.svc.cluster.local"
+  host_write: "pg-rw.postgres.svc.cluster.local"
+  port: 5432
+  database: "lakekeeper"
+  user: "lakekeeper"
+  passwordSecret: "lakekeeper-db-lh"      # created in the lakehouse ns (see below)
+  passwordSecretKey: "password"
+
+catalog:
+  replicas: 1
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }

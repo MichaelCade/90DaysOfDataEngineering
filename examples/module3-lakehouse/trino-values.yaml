@@ -1,0 +1,39 @@
+# Trino (distributed SQL) — Module 3 lakehouse query engine.
+server:
+  workers: 2
+coordinator:
+  jvm:
+    maxHeapSize: "3G"        # lab-sized (chart default 8G); query.maxMemoryPerNode stays 1GB
+worker:
+  jvm:
+    maxHeapSize: "3G"
+
+# reachable on the LAN, like Postgres' pg-rw-lb
+service:
+  type: LoadBalancer
+  port: 8080
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.169.192
+
+catalogs:
+  tpch: |
+    connector.name=tpch
+    tpch.splits-per-node=4
+  lakehouse: |
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest-catalog.uri=http://lakekeeper.lakehouse.svc.cluster.local:8181/catalog
+    iceberg.rest-catalog.warehouse=lakehouse
+    fs.native-s3.enabled=true
+    s3.endpoint=http://minio.minio.svc.cluster.local:9000
+    s3.region=local-01
+    s3.path-style-access=true
+    s3.aws-access-key=minio-admin
+    s3.aws-secret-key=<MINIO_SECRET_KEY>          # fill before deploy — do NOT commit real creds
+  # Postgres (CNPG appdb) — lets Trino read the dlt-landed cricket.* tables and
+  # promote them into the Iceberg lakehouse via CREATE TABLE ... AS SELECT (Day 26).
+  postgres: |
+    connector.name=postgresql
+    connection-url=jdbc:postgresql://pg-rw.postgres.svc.cluster.local:5432/appdb
+    connection-user=app
+    connection-password=<POSTGRES_APP_PASSWORD>   # fill before deploy — do NOT commit real creds

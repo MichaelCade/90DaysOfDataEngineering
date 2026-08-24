@@ -49,8 +49,11 @@ def cricket_lakehouse():
             f"postgresql://{c.login}:{c.password}@{c.host}:{c.port}/{c.schema}"
         )
 
+        # NB: @task.virtualenv runs this in a fresh interpreter — module-level globals aren't
+        # visible here, so define everything the nested resources close over *inside* the task.
         RAW = ("https://raw.githubusercontent.com/MichaelCade/90DaysOfDataEngineering/"
                "main/examples/cricket/data/snapshots")
+        SEASON = 2026
 
         @dlt.resource(name="batting", write_disposition="merge", primary_key=("player", "season"))
         def batting():

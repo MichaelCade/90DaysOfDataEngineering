@@ -80,8 +80,26 @@ Trino, then `CREATE TABLE lakehouse.… AS SELECT * FROM postgres.…` materiali
 as real Iceberg tables. See [`promote-cricket-to-iceberg.sql`](promote-cricket-to-iceberg.sql) —
 `cricket.batting/bowling/fielding` now live as Iceberg in this lakehouse.
 
+## Deep-dive lessons (Days 28–39)
+
+The concepts behind this stack, each verified against this running lakehouse:
+
+| Day | Topic |
+|---|---|
+| [28](../../Days/Day28.md) | Data lake vs warehouse vs lakehouse — what actually differs |
+| [29](../../Days/Day29.md) | Iceberg architecture — the catalog→metadata→manifest→data tree |
+| [30](../../Days/Day30.md) | Snapshots, time travel & ACID (`FOR VERSION AS OF`, `rollback_to_snapshot`) |
+| [31](../../Days/Day31.md) | Partitioning strategies & pruning |
+| [32](../../Days/Day32.md) | Encryption & security (TLS, MinIO SSE, authz, credential vending) |
+| [33](../../Days/Day33.md) | Compaction, expiry & maintenance (`optimize`, `expire_snapshots`) |
+| [34](../../Days/Day34.md) | MinIO advanced config, buckets & policies |
+| [35](../../Days/Day35.md) | Trino — distributed SQL engine on K8s (+ federation) |
+| [36](../../Days/Day36.md) | Trino — querying Iceberg (DDL, `$` metadata tables, time travel) |
+| [37](../../Days/Day37.md) | Trino — performance & cost awareness (`EXPLAIN ANALYZE`) |
+| [38](../../Days/Day38.md) | DuckDB with Iceberg — local development workflow |
+| [39](../../Days/Day39.md) | Hands-on — build the lakehouse end to end |
+
 ## Next
 
 - **Day 27** — run dlt inside Airflow (scheduled ingestion).
-- **Day 38** — DuckDB reads the same Iceberg tables locally.
-- **Module 4** — dbt (dbt-trino) turns the cricket lakehouse tables into tested models.
+- **Module 4** — dbt (dbt-trino) turns the cricket lakehouse tables into tested models ([Day 40](../../Days/Day40.md) ✅).

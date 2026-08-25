@@ -1,0 +1,9 @@
+# dbt-duckdb needs no server: models build into a single local file (dev.duckdb).
+# Run:  dbt seed --profiles-dir . && dbt build --profiles-dir .
+cricket_duckdb:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: dev.duckdb      # the whole "warehouse" is this one file (delete it to reset)
+      threads: 4

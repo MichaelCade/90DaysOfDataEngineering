@@ -13,7 +13,5 @@ select
     run_outs,
     stumpings,
 
-    case when total_victims > 0
-         then round(100e0 * total_catches / total_victims, 1)
-    end as catch_pct
+    {{ pct('total_catches', 'total_victims') }} as catch_pct
 from f

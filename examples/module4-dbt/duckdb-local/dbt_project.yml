@@ -1,0 +1,13 @@
+name: cricket_duckdb
+version: '1.0.0'
+config-version: 2
+profile: cricket_duckdb
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+# Same shape as the Trino project (staging view -> mart table) but on DuckDB, for fast local dev.
+models:
+  cricket_duckdb:
+    +materialized: table
+clean-targets: ["target", "dbt_packages"]

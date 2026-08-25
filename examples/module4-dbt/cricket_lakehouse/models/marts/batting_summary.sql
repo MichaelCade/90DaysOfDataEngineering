@@ -19,14 +19,11 @@ select
     hundreds,
     (fifties + hundreds) as scores_50_plus,
 
-    case when (fifties + hundreds) > 0
-         then round(100e0 * hundreds / (fifties + hundreds), 1)
-    end as conversion_pct,
+    {{ pct('hundreds', 'fifties + hundreds') }} as conversion_pct,
 
-    case when innings > 0
-         then round(100e0 * single_digit_scores / innings, 1)
-    end as early_exit_pct,
+    {{ pct('single_digit_scores', 'innings') }} as early_exit_pct,
 
+    -- runs/innings is a ratio, not a percentage, so it's spelled out (no *100)
     case when innings > 0
          then round(total_runs * 1e0 / innings, 1)
     end as runs_per_innings

@@ -52,24 +52,34 @@ flowchart LR
 
 ## Tests
 
-`dbt build` runs 35 tests alongside the models:
+`dbt build` runs 39 tests alongside the models:
 
 - **Generic** (in `_*.yml`): `not_null`, `unique_combination_of_columns` (player+season),
   `accepted_range` (percentages 0–100, counts ≥ 0), `accepted_values` (role, bowling_style),
   `relationships` (every mart player traces back to staging). `accepted_range`/`accepted_values`/
   `unique_combination_of_columns` come from the **dbt_utils** package (`packages.yml`).
+- **dbt-expectations** (Day 46): `expect_table_row_count_to_be_between` (sane squad size),
+  `expect_column_values_to_be_between` (total_runs, economy_rate in human range),
+  `expect_column_values_to_match_regex` (`best_bowling` looks like `4/15`).
 - **Singular** (`tests/*.sql`): the business invariants —
   [`assert_bowling_strike_rate_null_iff_wicketless`](cricket_lakehouse/tests/assert_bowling_strike_rate_null_iff_wicketless.sql)
   (the `-` cleaning invariant) and
   [`assert_batting_ranges_reconcile`](cricket_lakehouse/tests/assert_batting_ranges_reconcile.sql)
   (0–9 count and milestones can't exceed innings).
 
+The guarded-percentage logic (conversion %, early-exit %, catch %) is a reusable macro,
+[`macros/pct.sql`](cricket_lakehouse/macros/pct.sql) (Day 45), so all three rates round the same way
+and the `100e0`-not-`100.0` Trino fix lives in one place.
+
+A **DuckDB** twin of the project lives in [`../module4-dbt/duckdb-local/`](duckdb-local/) (Day 47) —
+identical metric logic on a seeded CSV, `dbt build` in ~0.3s with no cluster, same numbers as Trino.
+
 ## Run it
 
 ```bash
 pip install -r ../../requirements.txt        # brings in dbt-trino
 cd cricket_lakehouse
-dbt deps  --profiles-dir .                    # install dbt_utils
+dbt deps  --profiles-dir .                    # install dbt_utils + dbt_expectations
 dbt build --profiles-dir .                    # run models + tests against the lakehouse
 dbt docs generate --profiles-dir . && dbt docs serve --profiles-dir .   # lineage + docs UI
 ```
@@ -78,8 +88,8 @@ dbt docs generate --profiles-dir . && dbt docs serve --profiles-dir .   # lineag
 (`192.168.169.192:8080`, catalog `lakehouse`, no auth). Last run:
 
 ```
-Done. PASS=42 WARN=0 ERROR=0 SKIP=0 TOTAL=42
-  (3 view models, 4 table models, 35 data tests)
+Done. PASS=46 WARN=0 ERROR=0 SKIP=0 TOTAL=46
+  (3 view models, 4 table models, 39 data tests)
 
 batting_summary — best conversion (2+ fifty-plus scores):
   Jonathan Dalley  30 inns  754 runs  7×50+  conversion 42.9%  early-exit 33.3%

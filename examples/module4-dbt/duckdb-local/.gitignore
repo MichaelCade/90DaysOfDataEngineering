@@ -1,0 +1,8 @@
+target/
+dbt_packages/
+logs/
+*.duckdb
+*.duckdb.wal
+package-lock.yml
+
+.user.yml

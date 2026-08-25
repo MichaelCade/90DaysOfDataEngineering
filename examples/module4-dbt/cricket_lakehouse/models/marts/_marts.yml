@@ -3,6 +3,12 @@ version: 2
 models:
   - name: batting_summary
     description: Batting metrics per player/season — Conversion %, Early Exit %, runs/innings.
+    data_tests:
+      # dbt_expectations table-level check: the squad is a sane size (catches an empty/exploded load)
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+            max_value: 200
     columns:
       - name: player
         description: Every batting_summary player must trace back to a staged batting row.
@@ -12,6 +18,12 @@ models:
               arguments:
                 to: ref('stg_cricket__batting')
                 field: player
+      - name: total_runs
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 2000
       - name: conversion_pct
         description: hundreds / (fifties+hundreds) as a %. NULL only when the player has no 50+ score.
         data_tests:
@@ -37,6 +49,11 @@ models:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
+          # dbt_expectations: an economy rate above ~15 runs/over would be a data error, not cricket
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 15
       - name: strike_rate
         description: Balls per wicket. NULL for wicketless bowlers (see assert_ singular test).
         data_tests:

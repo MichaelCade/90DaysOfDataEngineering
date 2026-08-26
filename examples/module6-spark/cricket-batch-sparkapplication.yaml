@@ -1,0 +1,60 @@
+# SparkApplication (Spark Operator CRD) — runs jobs/cricket_batch.py on Kubernetes against the
+# Iceberg lakehouse. The PySpark script is mounted from a ConfigMap created from the .py file:
+#
+#   kubectl create configmap cricket-batch-code \
+#     --from-file=job.py=jobs/cricket_batch.py -n spark \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl apply -f cricket-batch-sparkapplication.yaml
+#
+# NOTE: s3 secret-access-key is inline here for clarity; in production reference a K8s Secret /
+# Lakekeeper credential vending instead (same lesson as Module 3, Day 32).
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: cricket-batch
+  namespace: spark
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: apache/spark:3.5.3
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/spark/app/job.py
+  sparkVersion: "3.5.3"
+  deps:
+    packages:                                   # Iceberg + AWS SDK, resolved via Maven at startup
+      - org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1
+      - org.apache.iceberg:iceberg-aws-bundle:1.6.1
+  sparkConf:
+    spark.jars.ivy: "/tmp/.ivy2"
+    # --- Iceberg REST catalog "lakehouse" -> Lakekeeper -> MinIO (mirrors the Trino catalog) ---
+    spark.sql.extensions: "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
+    spark.sql.catalog.lakehouse: "org.apache.iceberg.spark.SparkCatalog"
+    spark.sql.catalog.lakehouse.type: "rest"
+    spark.sql.catalog.lakehouse.uri: "http://lakekeeper.lakehouse.svc.cluster.local:8181/catalog"
+    spark.sql.catalog.lakehouse.warehouse: "lakehouse"
+    spark.sql.catalog.lakehouse.io-impl: "org.apache.iceberg.aws.s3.S3FileIO"
+    spark.sql.catalog.lakehouse.s3.endpoint: "http://minio.minio.svc.cluster.local:9000"
+    spark.sql.catalog.lakehouse.s3.path-style-access: "true"
+    spark.sql.catalog.lakehouse.s3.access-key-id: "minio-admin"
+    spark.sql.catalog.lakehouse.s3.secret-access-key: "<MINIO_SECRET_KEY>"
+    spark.sql.catalog.lakehouse.client.region: "us-east-1"
+    spark.sql.defaultCatalog: "lakehouse"
+  driver:
+    cores: 1
+    memory: "1g"
+    serviceAccount: spark-operator-spark
+    env:
+      - { name: AWS_REGION, value: "us-east-1" }
+    volumeMounts:
+      - { name: code, mountPath: /opt/spark/app }
+  executor:
+    instances: 1
+    cores: 1
+    memory: "1g"
+    env:
+      - { name: AWS_REGION, value: "us-east-1" }
+  volumes:
+    - name: code
+      configMap:
+        name: cricket-batch-code

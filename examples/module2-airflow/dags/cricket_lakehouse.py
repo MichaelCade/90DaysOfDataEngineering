@@ -144,23 +144,30 @@ def cricket_lakehouse():
 
     @task.virtualenv(requirements=["dbt-trino==1.10.3"], system_site_packages=True)
     def transform_with_dbt():
-        # The dbt project isn't in the git-synced dags/ subPath, so fetch it from the public repo
-        # (same "start at the file the repo already holds" idea the dlt task uses for snapshots),
-        # then drive dbt in-process with dbtRunner — no dbt CLI on PATH to depend on.
+        # The dbt project isn't in the git-synced dags/ subPath, so fetch it from the public repo.
+        # We download the repo as an HTTPS TARBALL (stdlib urllib+tarfile) rather than `git clone` —
+        # the worker image's git isn't executable by the airflow user (PermissionError: 'git').
+        # dbt deps also needs no git: our packages resolve via the dbt Hub over HTTPS.
+        # Then drive dbt in-process with dbtRunner — no dbt CLI on PATH to depend on.
+        import io
         import os
-        import subprocess
+        import tarfile
         import tempfile
         import textwrap
+        import urllib.request
         from dbt.cli.main import dbtRunner
 
         work = tempfile.mkdtemp()
-        repo = os.path.join(work, "repo")
-        subprocess.run(
-            ["git", "clone", "--depth", "1",
-             "https://github.com/MichaelCade/90DaysOfDataEngineering.git", repo],
-            check=True,
-        )
-        project = os.path.join(repo, "examples", "module4-dbt", "cricket_lakehouse")
+        url = ("https://codeload.github.com/MichaelCade/90DaysOfDataEngineering/"
+               "tar.gz/refs/heads/main")
+        with urllib.request.urlopen(url, timeout=60) as resp:
+            with tarfile.open(fileobj=io.BytesIO(resp.read()), mode="r:gz") as tar:
+                try:
+                    tar.extractall(work, filter="data")   # py3.12+: safe extraction
+                except TypeError:
+                    tar.extractall(work)                  # older Python fallback
+        project = os.path.join(work, "90DaysOfDataEngineering-main",
+                               "examples", "module4-dbt", "cricket_lakehouse")
 
         # In-cluster profile: point dbt at the Trino *service* (no auth), same host the CTAS uses.
         # (The committed profiles.yml targets the laptop LoadBalancer; here we want service DNS.)

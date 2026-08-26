@@ -40,9 +40,11 @@ pattern — **KubernetesExecutor pod + `@task.virtualenv`** (pip-installs `dbt-t
 @task.virtualenv(requirements=["dbt-trino==1.10.3"], system_site_packages=True)
 def transform_with_dbt():
     # the dbt project isn't in the git-synced dags/ subPath, so fetch it from the public repo
-    subprocess.run(["git","clone","--depth","1",
-        "https://github.com/MichaelCade/90DaysOfDataEngineering.git", repo], check=True)
-    project = f"{repo}/examples/module4-dbt/cricket_lakehouse"
+    # as an HTTPS tarball (stdlib urllib+tarfile) — no git needed (see the gotcha below)
+    with urllib.request.urlopen(".../90DaysOfDataEngineering/tar.gz/refs/heads/main") as resp:
+        with tarfile.open(fileobj=io.BytesIO(resp.read()), mode="r:gz") as tar:
+            tar.extractall(work, filter="data")
+    project = f"{work}/90DaysOfDataEngineering-main/examples/module4-dbt/cricket_lakehouse"
 
     # in-cluster profile: Trino *service* DNS (same host the CTAS uses), no auth
     write profiles.yml -> host: trino.lakehouse.svc.cluster.local, catalog: lakehouse, schema: cricket_dbt
@@ -60,9 +62,12 @@ load_to_postgres() >> promote_to_lakehouse() >> transform_with_dbt()
 
 Three deliberate choices:
 
-- **Fetch the project by clone.** git-sync only syncs the `dags/` subPath, so the dbt project isn't
-  on the pod. Cloning the public repo in-task mirrors how the dlt task already pulls snapshots from
-  raw URLs — "the pipeline starts at what the repo holds."
+- **Fetch the project as a tarball, not `git clone`.** git-sync only syncs the `dags/` subPath, so
+  the dbt project isn't on the pod. The first version shelled out to `git clone` — and the task
+  failed with `PermissionError: [Errno 13] Permission denied: 'git'`: the worker image *has* a `git`
+  file but it isn't executable by the `airflow` user. So we download the repo as an HTTPS tarball
+  with stdlib `urllib`+`tarfile` — zero external binaries. (This mirrors how the dlt task pulls
+  snapshots over HTTPS — "the pipeline starts at what the repo holds.")
 - **`dbtRunner`, not a shell `dbt`.** Driving dbt in-process (`from dbt.cli.main import dbtRunner`)
   avoids depending on a `dbt` binary being on the pod's PATH, and lets us check `res.success`
   directly.
@@ -95,8 +100,8 @@ dbtRunner().invoke(["build", "--project-dir", ".", "--profiles-dir", "."])
 
 The DAG parses and chains cleanly. The full in-cluster run fires on the next schedule (or a manual
 trigger) once the DAG is pushed and git-synced — exactly the Day-27 workflow: **push → git-sync
-(~30s) → unpause → trigger**, and the first run is slower while the pod pip-installs dbt and clones
-the repo.
+(~30s) → unpause → trigger**, and the first run is slower while the pod pip-installs dbt and
+downloads the repo tarball.
 
 ## Applied example (🏏)
 

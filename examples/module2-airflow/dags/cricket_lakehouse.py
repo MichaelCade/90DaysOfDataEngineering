@@ -2,15 +2,18 @@
 
 The whole platform in one scheduled DAG, running in-cluster:
 
-    fetch snapshots ─dlt(merge)─► Postgres cricket.* ─Trino CTAS─► Iceberg lakehouse.cricket.*
-                                                                        │
-                                                              dbt build (models + 39 tests)
-                                                                        ▼
-                                                            lakehouse.cricket_dbt.* (tested marts)
+    fetch ─dlt(merge)─► Postgres cricket.* ─[Soda gate]─► Trino CTAS ─► Iceberg lakehouse.cricket.*
+                                                                              │
+                                                                    dbt build (models + 39 tests)
+                                                                              ▼
+                                                                  lakehouse.cricket_dbt.* (marts)
 
 - `load_to_postgres`  — dlt reads the batting/bowling/fielding snapshots (from the repo's raw
   URLs — the landed captures) and MERGEs them into Postgres `cricket.*`. Re-runs upsert, so
   running this weekly after each match keeps the tables current (Day 24's incremental, scheduled).
+- `validate_landing` (Day 53) — a Soda Core scan of the Postgres landing zone (row counts, no
+  duplicate players, valid economy rate, victims reconcile). Runs BEFORE promotion, so bad data
+  never reaches Iceberg — quality as a pipeline stage. A failed check fails the task.
 - `promote_to_lakehouse` — Trino materialises those Postgres tables as Iceberg tables in the
   lakehouse (Day 26's CTAS), so Trino/DuckDB/Spark all see the refreshed data.
 - `transform_with_dbt` (Day 48) — runs the Module 4 dbt project (`examples/module4-dbt/
@@ -38,7 +41,7 @@ SEASON = 2026
     schedule="0 7 * * 1",                 # 07:00 every Monday (post weekend fixtures)
     start_date=pendulum.datetime(2026, 8, 1, tz="UTC"),
     catchup=False,
-    tags=["cricket", "dlt", "lakehouse", "dbt", "day27", "day48"],
+    tags=["cricket", "dlt", "lakehouse", "dbt", "soda", "day27", "day48", "day53"],
 )
 def cricket_lakehouse():
 
@@ -91,6 +94,41 @@ def cricket_lakehouse():
         info = dlt.pipeline(pipeline_name="cricket", destination="postgres",
                             dataset_name="cricket").run([batting(), bowling(), fielding()])
         print(info)
+
+    @task.virtualenv(requirements=["soda-core-postgres==3.5.6", "requests"],
+                     system_site_packages=True)
+    def validate_landing():
+        # Day 53 — quality as a pipeline STAGE. Scan what dlt landed in Postgres BEFORE Trino
+        # promotes it: if the landing data is bad, this task fails and promotion never runs, so
+        # bad rows can't reach the Iceberg lakehouse. Creds come from the Airflow connection;
+        # the SodaCL checks are the canonical file in the repo (single source of truth).
+        import textwrap
+        import requests
+        from airflow.hooks.base import BaseHook
+        from soda.scan import Scan
+
+        c = BaseHook.get_connection("postgres_appdb")
+        config = textwrap.dedent(f"""\
+            data_source cricket_pg:
+              type: postgres
+              host: {c.host}
+              port: {c.port}
+              username: {c.login}
+              password: {c.password}
+              database: {c.schema}
+              schema: cricket
+        """)
+        checks = requests.get(
+            "https://raw.githubusercontent.com/MichaelCade/90DaysOfDataEngineering/"
+            "main/examples/module5-quality/soda/checks/cricket.yml", timeout=30).text
+
+        scan = Scan()
+        scan.set_data_source_name("cricket_pg")
+        scan.add_configuration_yaml_str(config)
+        scan.add_sodacl_yaml_str(checks)
+        scan.execute()
+        print(scan.get_logs_text())
+        scan.assert_no_checks_fail()          # raises -> task (and DAG run) fails on any bad check
 
     @task.virtualenv(requirements=["trino"], system_site_packages=True)
     def promote_to_lakehouse():
@@ -152,7 +190,8 @@ def cricket_lakehouse():
                 raise RuntimeError(f"dbt {cmd[0]} failed: {res.exception or 'see task logs'}")
         print("dbt build OK — lakehouse.cricket_dbt.* rebuilt and all tests passed")
 
-    load_to_postgres() >> promote_to_lakehouse() >> transform_with_dbt()
+    (load_to_postgres() >> validate_landing()
+     >> promote_to_lakehouse() >> transform_with_dbt())
 
 
 cricket_lakehouse()

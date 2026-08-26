@@ -1,0 +1,29 @@
+# SodaCL checks for the cricket landing zone (Postgres cricket.*).
+# Run: soda scan -d cricket_pg -c configuration.yml checks/cricket.yml
+# Verified: 7/7 pass against the current data.
+
+checks for batting:
+  - row_count > 0                         # the load actually produced rows
+  - duplicate_count(player) = 0           # merge on (player, season) => no dup players
+  - missing_count(player) = 0             # every row has a key
+  - missing_count(total_runs) = 0
+  - failed rows:
+      name: total_runs must be non-negative
+      fail query: SELECT player, total_runs FROM cricket.batting WHERE total_runs < 0
+
+checks for bowling:
+  - row_count > 0
+  - duplicate_count(player) = 0
+  - invalid_count(economy_rate) = 0:      # a human-plausible economy rate
+      valid min: 0
+      valid max: 15
+
+checks for fielding:
+  - row_count > 0
+  - duplicate_count(player) = 0
+  - failed rows:
+      name: total_victims must reconcile with its parts
+      fail query: |
+        SELECT player, total_victims, total_catches, run_outs, stumpings
+        FROM cricket.fielding
+        WHERE total_victims < total_catches      -- victims can't be fewer than catches

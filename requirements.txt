@@ -16,3 +16,5 @@ psycopg2-binary>=2.9            # Postgres driver for quick checks
 dbt-trino>=1.8                  # Module 4: dbt transformations on the Trino/Iceberg lakehouse
 duckdb>=1.4                     # Day 38: local engine — reads Iceberg (iceberg_scan) + Postgres
 dbt-duckdb>=1.9                 # Day 47: run the dbt project locally on DuckDB (fast dev)
+soda-core-postgres>=3.5         # Module 5: Soda Core data-quality scans on the Postgres landing zone
+pandera[pandas]>=0.26           # Module 5: DataFrame schema validation (in-flight, at ingest)

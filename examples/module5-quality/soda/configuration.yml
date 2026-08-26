@@ -1,0 +1,19 @@
+# Soda Core data source for the cricket LANDING zone (Postgres appdb, schema cricket).
+# This is the "between stages" checkpoint: validate what dlt landed BEFORE Trino promotes it to
+# Iceberg. Soda scans the warehouse over SQL — see checks/ for the SodaCL rules.
+#
+# The password comes from an env var, so no secret is committed (pre-push secret scan is SOP):
+#   export POSTGRES_APP_PASSWORD='...'
+#   soda scan -d cricket_pg -c configuration.yml checks/cricket.yml
+#
+# NB: Soda's Trino connector requires HTTPS, so it can't scan our internal plain-HTTP Trino
+# (the lakehouse). Enable Trino TLS (Day 32) to scan Iceberg directly; until then we gate on the
+# Postgres landing zone, which is the right place to catch a bad load anyway.
+data_source cricket_pg:
+  type: postgres
+  host: 192.168.169.191        # Postgres LoadBalancer (pg-rw)
+  port: 5432
+  username: app
+  password: ${POSTGRES_APP_PASSWORD}
+  database: appdb
+  schema: cricket

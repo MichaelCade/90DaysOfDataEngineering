@@ -1,0 +1,114 @@
+# Bonus — Metabase (BI / dashboards) on Kubernetes, wired to Trino (the lakehouse query engine).
+# Not in the original 90-day plan; the "serving" layer so you can SEE the cricket_dbt marts.
+#
+#   kubectl apply -f metabase.yaml
+#   then open https://metabase.192.168.169.190.nip.io and add the Trino data source (see README).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: metabase
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metabase-data
+  namespace: metabase
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: ceph-block
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metabase
+  namespace: metabase
+spec:
+  replicas: 1
+  strategy: { type: Recreate }          # H2 file is RWO — never two writers
+  selector:
+    matchLabels: { app: metabase }
+  template:
+    metadata:
+      labels: { app: metabase }
+    spec:
+      securityContext:
+        fsGroup: 2000                    # make the RBD PVC writable by the non-root metabase user
+      initContainers:
+        # Metabase has no Trino driver built in — fetch the Starburst driver (supports Trino) into
+        # the shared /plugins dir; Metabase loads driver jars from MB_PLUGINS_DIR at startup.
+        - name: fetch-trino-driver
+          image: curlimages/curl:8.11.1
+          command: ["sh", "-c"]
+          args:
+            - >-
+              curl -fsSL -o /plugins/starburst.metabase-driver.jar
+              https://github.com/starburstdata/metabase-driver/releases/download/6.1.0/starburst-6.1.0.metabase-driver.jar
+              && ls -la /plugins
+          volumeMounts:
+            - { name: plugins, mountPath: /plugins }
+      containers:
+        - name: metabase
+          image: metabase/metabase:v0.52.2       # matches Starburst driver 6.1.0
+          ports:
+            - { containerPort: 3000 }
+          env:
+            - { name: MB_PLUGINS_DIR, value: "/plugins" }
+            - { name: MB_DB_TYPE, value: "h2" }
+            - { name: MB_DB_FILE, value: "/metabase-data/metabase.db" }
+            - { name: MB_JETTY_PORT, value: "3000" }
+            - { name: JAVA_TIMEZONE, value: "Europe/London" }
+          volumeMounts:
+            - { name: plugins, mountPath: /plugins }
+            - { name: data, mountPath: /metabase-data }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 20
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 180
+            periodSeconds: 30
+          resources:
+            requests: { memory: "1Gi", cpu: "250m" }
+            limits: { memory: "2Gi" }
+      volumes:
+        - name: plugins
+          emptyDir: {}
+        - name: data
+          persistentVolumeClaim: { claimName: metabase-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metabase
+  namespace: metabase
+spec:
+  selector: { app: metabase }
+  ports:
+    - { name: http, port: 3000, targetPort: 3000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: metabase
+  namespace: metabase
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts: ["metabase.192.168.169.190.nip.io"]
+  rules:
+    - host: metabase.192.168.169.190.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: metabase
+                port: { number: 3000 }

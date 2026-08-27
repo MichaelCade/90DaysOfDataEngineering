@@ -60,6 +60,25 @@ Trino connection option appears).
 - **Table with conditional formatting**: `player_season_summary` — the all-rounder OBT.
 - Save a few into a **Dashboard** = your cricket coaching board, refreshed whenever the pipeline runs.
 
+## Make the columns self-explaining
+
+The marts have a lot of *derived* columns (Conversion %, bowling_style, disciplines_contributed…).
+Two aids:
+
+- **[Data dictionary](../module4-dbt/DATA_DICTIONARY.md)** — every column in plain English, how it's
+  computed, and which raw fields feed it.
+- **[`sync_descriptions_to_metabase.py`](sync_descriptions_to_metabase.py)** — pushes those
+  descriptions into Metabase so hovering a column (or the ⓘ in a question) explains itself. You run
+  it with your own Metabase admin API key (nothing sensitive is committed):
+
+  ```bash
+  export METABASE_URL="https://metabase.192.168.169.190.nip.io"
+  export METABASE_API_KEY="mb_..."          # Admin > Settings > API Keys
+  export METABASE_DB="Cricket Lakehouse"    # the data-source name you created
+  python sync_descriptions_to_metabase.py --dry-run    # preview
+  python sync_descriptions_to_metabase.py              # apply
+  ```
+
 ## Notes
 
 - **H2 app-db** (on the PVC) is fine for a personal instance; for a shared/production Metabase use a

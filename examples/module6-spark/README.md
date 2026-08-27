@@ -86,7 +86,8 @@ The git-synced SparkApplication carries **no** secret — Iceberg S3FileIO reads
 
 ## Lessons
 
-Days [58](../../Days/Day58.md)–[66](../../Days/Day66.md): distributed fundamentals, architecture,
+Days [58](../../Days/Day58.md)–[69](../../Days/Day69.md): distributed fundamentals, architecture,
 PySpark DataFrames/lazy-eval/joins-windows, reading & writing Iceberg, performance, the Spark
-Operator, and the SparkApplication CRD. Days 67–69 (maintenance jobs, Pandera-in-Spark, hands-on) to
-come.
+Operator, the SparkApplication CRD, Iceberg maintenance jobs
+([`jobs/cricket_maintenance.py`](jobs/cricket_maintenance.py)), Pandera-in-Spark validation
+([`jobs/cricket_validate.py`](jobs/cricket_validate.py)), and the hands-on synthesis.
